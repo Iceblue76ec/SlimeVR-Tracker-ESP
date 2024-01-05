@@ -86,8 +86,12 @@ void BNO080Sensor::motionSetup()
     working = true;
     configured = true;
 
-	imu.enableStabilityClassifier(100);
-	lastMotionSetupTime = millis();
+	// 状态判断器
+	imu.enableStabilityClassifier(10);
+	// 开启信息回报才能知道精度参数
+	imu.enableAccelerometer(50);
+	imu.enableGyro(50);
+	imu.enableMagnetometer(50);
 }
 
 void BNO080Sensor::motionLoop()
@@ -172,8 +176,111 @@ void BNO080Sensor::motionLoop()
         }
         if (m_IntPin == 255 || imu.I2CTimedOut())
             break;
-    }
-	// 异常状态
+
+		// 开机校准相关
+		stabilityNumber=imu.getStabilityClassifier();
+		if (!calibStopped && millis()%100==0) {
+			// 串口调试信息打印测试
+			if (millis() % 200 == 0) {
+				{
+					if (stabilityNumber == 1) {
+						m_Logger.info("运动状态：桌上");
+					} else if (stabilityNumber == 2) {
+						m_Logger.info("运动状态：静止");
+					} else if (stabilityNumber == 3) {
+						m_Logger.info("运动状态：稳定");
+					} else if (stabilityNumber == 4) {
+						m_Logger.info("运动状态：运动");
+					} else {
+						m_Logger.info("运动状态：未知");
+					}
+				}
+			}
+
+			// 当设备开机15秒内不运动时启动校准
+			if (!calibStarted && millis() < 15000 && stabilityNumber != 4) {
+				// getStabilityClassifier需要10秒来判断状态
+				//  0 - 未知
+				//  1 - 在桌子上
+				//  2 - 静止
+				//  3 - 稳定
+				//  4 - 运动
+				//  5 - 保留
+
+				// 启动校准
+				#if BNO_USE_MAGNETOMETER_CORRECTION
+				imu.calibrateAll();
+				#else
+				// todo：桌面平放状态没法考虑到加速度计的校准
+				imu.calibrateGyro();
+				#endif
+				calibStarted = true;
+				// 校准时LED快速闪烁
+				ledManager.blink(150);
+				m_Logger.info("桌面条件满足，启动校准");
+			}
+			// 校准已经启动，且校准未完成
+			if (calibStarted && !calibStopped) {
+				if (millis() % 200 == 0) {
+					m_Logger.info("校准中……");
+					// todo:下次打印改优雅一点
+					{
+						// printAccuracyLevel(accelAccuracy);
+						if (imu.getAccelAccuracy() == 0) {
+							m_Logger.info("accelAccuracy Unreliable");
+						} else if (imu.getAccelAccuracy() == 1) {
+							m_Logger.info("accelAccuracy Low");
+						} else if (imu.getAccelAccuracy() == 2) {
+							m_Logger.info("accelAccuracy Medium");
+						} else if (imu.getAccelAccuracy() == 3) {
+							m_Logger.info("accelAccuracy High");
+						}
+						// printAccuracyLevel(gyroAccuracy);
+						if (imu.getGyroAccuracy() == 0) {
+							m_Logger.info("gyroAccuracy Unreliable");
+						} else if (imu.getGyroAccuracy() == 1) {
+							m_Logger.info("gyroAccuracy Low");
+						} else if (imu.getGyroAccuracy() == 2) {
+							m_Logger.info("gyroAccuracy Medium");
+						} else if (imu.getGyroAccuracy() == 3) {
+							m_Logger.info("gyroAccuracy High");
+						}
+						// printAccuracyLevel(magAccuracy);
+						if (imu.getMagAccuracy() == 0) {
+							m_Logger.info("magAccuracy Unreliable");
+						} else if (imu.getMagAccuracy() == 1) {
+							m_Logger.info("magAccuracy Low");
+						} else if (imu.getMagAccuracy() == 2) {
+							m_Logger.info("magAccuracy Medium");
+						} else if (imu.getMagAccuracy() == 3) {
+							m_Logger.info("magAccuracy High");
+						}
+					}
+				}
+				// 保存校准，陀螺仪校准精度低于high不保存
+				if (imu.getGyroAccuracy() == 3) {
+					imu.saveCalibration();
+					imu.endCalibration();
+					calibStopped = true;
+					#if BNO_USE_MAGNETOMETER_CORRECTION
+					// 9轴模式一直保持磁力计自校准也许对环境适应能力更强
+					imu.calibrateMagnetometer();
+					#endif
+					m_Logger.info("精度合格，保存校准");
+				}
+			}
+			// 如果预设校准时间结束 30秒 或
+			// slime未保持桌面静止状态，则校准强制结束且不保存校准信息
+			if (millis() > 30000 || (calibStarted && stabilityNumber ==4)) {
+				imu.endCalibration();
+
+				calibStopped = true;
+				ledManager.off();
+				m_Logger.info("自动校准结束");
+			}
+		}
+	}
+	// 异常状态处理
     if (lastData + 1000 < millis() && configured)
     {
         while(true) {
@@ -198,69 +305,6 @@ void BNO080Sensor::motionLoop()
         m_Logger.error("Last error: %d, seq: %d, src: %d, err: %d, mod: %d, code: %d",
                 lastError.severity, lastError.error_sequence_number, lastError.error_source, lastError.error, lastError.error_module, lastError.error_code);
     }
-
-	// 开机校准相关
-	if (!calibStopped) {
-		// 串口调试信息测试
-		if((millis()-lastMotionSetupTime)%1000==0){
-			m_Logger.info("状态：0-未知 1-桌上 2-静止 3-稳定");
-			printStabilityClassifier(imu.getStabilityClassifier());
-			m_Logger.info("加速度计精度：");
-			printAccuracyLevel(imu.getAccelAccuracy());
-			m_Logger.info("陀螺仪计精度：");
-			printAccuracyLevel(imu.getGyroAccuracy());
-			m_Logger.info("磁力计计精度：");
-			printAccuracyLevel(imu.getMagAccuracy());
-			m_Logger.info("四元数精度：");
-			printAccuracyLevel(imu.getQuatAccuracy());
-		}
-
-		// 当设备开机15秒内不运动时启动校准
-		if (!calibStarted && lastMotionSetupTime + 15000 < millis() && imu.getStabilityClassifier() == 1) {
-			//getStabilityClassifier需要10秒来判断状态
-			// 0 - 未知
-			// 1 - 在桌子上
-			// 2 - 静止
-			// 3 - 稳定
-			// 4 - 运动
-			// 5 - 保留
-
-			// 启动校准
-			#if BNO_USE_MAGNETOMETER_CORRECTION
-			imu.calibrateAll();
-			#else
-			// todo：桌面平放状态没法考虑到加速度计的校准
-			imu.calibrateGyro();
-			#endif
-			calibStarted=true;
-			// 校准时LED快速闪烁
-			ledManager.blink(150);
-			m_Logger.info("桌面条件满足，启动校准");
-		}
-		// 校准已经启动，且校准未完成
-		if (calibStarted && !calibStopped) {
-
-			m_Logger.info("校准中……");
-			//保存校准，陀螺仪校准精度低于high不保存
-			if(imu.getGyroAccuracy()>=3){
-				imu.saveCalibration();
-				imu.endCalibration();
-				calibStopped=true;
-				#if BNO_USE_MAGNETOMETER_CORRECTION
-				// 9轴模式一直保持磁力计自校准也许对环境适应能力更强
-				imu.calibrateMagnetometer();
-				#endif
-				m_Logger.info("精度合格，保存校准");
-			}
-		}
-		// 如果预设校准时间结束 或 slime未保持桌面静止状态，则校准强制结束且不保存校准信息
-		if(lastMotionSetupTime + BNO_SELF_CALIBRATION_TIME > millis() || imu.getStabilityClassifier() != 1){
-			imu.endCalibration();
-
-			calibStarted=true;
-			ledManager.off();
-		}
-	}
 }
 
 SensorStatus BNO080Sensor::getSensorState() {
@@ -314,27 +358,32 @@ void BNO080Sensor::startCalibration(int calibrationType)
     // that is disabled 30 seconds after startup
 }
 
-// Given a accuracy number, print what it means
-void printAccuracyLevel(uint8_t accuracyNumber)
-{
-  if (accuracyNumber == 0)
-    Serial.print(F("Unreliable"));
-  else if (accuracyNumber == 1)
-    Serial.print(F("Low"));
-  else if (accuracyNumber == 2)
-    Serial.print(F("Medium"));
-  else if (accuracyNumber == 3)
-    Serial.print(F("High"));
-}
+// // Given a accuracy number, print what it means
+// void printAccuracyLevel(uint8_t accuracyNumber) {
+// 	if (accuracyNumber == 0) {
+// 		m_Logger.info("Unreliable");
+// 	} else if (accuracyNumber == 1) {
+// 		m_Logger.info("Low");
+// 	} else if (accuracyNumber == 2) {
+// 		m_Logger.info("Medium");
+// 	} else if (accuracyNumber == 3) {
+// 		m_Logger.info("High");
+// 	}
+// }
 
-void printStabilityClassifier(uint8_t StabilityClassifierNumber)
-{
-	if (StabilityClassifierNumber == 0)
-    Serial.print(F("StabilityClassifier:未知"));
-  else if (StabilityClassifierNumber == 1)
-    Serial.print(F("StabilityClassifier:桌上"));
-  else if (StabilityClassifierNumber == 2)
-    Serial.print(F("StabilityClassifier:静止"));
-  else if (StabilityClassifierNumber == 3)
-    Serial.print(F("StabilityClassifier:稳定"));
-}
+// void printStabilityClassifier()
+// {
+// 	if (imu.stabilityNumber == 0) {
+// 		m_Logger.info("StabilityClassifier:未知");
+// 	} else if (StabilityNumber == 1) {
+// 		m_Logger.info("StabilityClassifier:桌上");
+// 	} else if (StabilityNumber == 2) {
+// 		m_Logger.info("StabilityClassifier:静止");
+// 	} else if (StabilityNumber == 3) {
+// 		m_Logger.info("StabilityClassifier:稳定");
+// 	} else if (StabilityNumber == 4) {
+// 		m_Logger.info("StabilityClassifier:运动");
+// 	}else if (StabilityNumber == 5) {
+// 		m_Logger.info("StabilityClassifier:保留");
+// 	}
+// }

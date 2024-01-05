@@ -282,6 +282,7 @@ public:
 	void setFeatureCommand(uint8_t reportID, uint16_t timeBetweenReports, uint32_t specificConfig);
 	void sendCommand(uint8_t command);
 	void sendCalibrateCommand(uint8_t thingToCalibrate);
+	void sendCalibrateCommandOld(uint8_t thingToCalibrate);
 
 	//Metadata functions
 	int16_t getQ1(uint16_t recordID);

@@ -42,8 +42,8 @@ public:
     void sendData() override final;
     void startCalibration(int calibrationType) override final;
     SensorStatus getSensorState() override final;
-	void printAccuracyLevel(uint8_t accuracyNumber);
-	void printStabilityClassifier(uint8_t StabilityClassifierNumber);
+	// void printAccuracyLevel(uint8_t accuracyNumber);
+	// void printStabilityClassifier(uint8_t StabilityNumber);
 
 private:
     BNO080 imu{};
@@ -62,9 +62,9 @@ private:
     bool newMagData = false;
 
 	// 关于BNO自动校准要用的参数
-	unsigned long lastMotionSetupTime = millis();
     bool calibStopped = false;
 	bool calibStarted = false;
+	uint8_t stabilityNumber;
 };
 
 #endif

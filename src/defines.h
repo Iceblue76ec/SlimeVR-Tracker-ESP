@@ -27,7 +27,7 @@
 
 // Set parameters of IMU and board used
 #define IMU IMU_BNO085
-#define SECOND_IMU IMU_BMI160
+#define SECOND_IMU IMU//_BMI160
 #define BOARD BOARD_NODEMCU
 #define IMU_ROTATION DEG_0
 #define SECOND_IMU_ROTATION DEG_0
