@@ -27,10 +27,10 @@
 
 // Set parameters of IMU and board used
 #define IMU IMU_BNO085
-#define SECOND_IMU IMU
-#define BOARD BOARD_SLIMEVR
-#define IMU_ROTATION DEG_270
-#define SECOND_IMU_ROTATION DEG_270
+#define SECOND_IMU IMU_BMI160
+#define BOARD BOARD_NODEMCU
+#define IMU_ROTATION DEG_0
+#define SECOND_IMU_ROTATION DEG_0
 
 #define PRIMARY_IMU_OPTIONAL false
 #define SECONDARY_IMU_OPTIONAL true
@@ -53,8 +53,8 @@ IMU_DESC_ENTRY(IMU_BMP160, PRIMARY_IMU_ADDRESS_ONE, IMU_ROTATION, PIN_IMU_SCL, P
 #endif
 
 // Battery monitoring options (comment to disable):
-//   BAT_EXTERNAL for ADC pin, 
-//   BAT_INTERNAL for internal - can detect only low battery, 
+//   BAT_EXTERNAL for ADC pin,
+//   BAT_INTERNAL for internal - can detect only low battery,
 //   BAT_MCP3021 for external ADC connected over I2C
 #define BATTERY_MONITOR BAT_EXTERNAL
 
@@ -63,9 +63,9 @@ IMU_DESC_ENTRY(IMU_BMP160, PRIMARY_IMU_ADDRESS_ONE, IMU_ROTATION, PIN_IMU_SCL, P
 // For other boards you can now adjust the other resistor values.
 // The diagram looks like this:
 //   (Battery)--- [BATTERY_SHIELD_RESISTANCE] ---(INPUT_BOARD)---  [BATTERY_SHIELD_R2] ---(ESP32_INPUT)--- [BATTERY_SHIELD_R1] --- (GND)
-// #define BATTERY_SHIELD_RESISTANCE 180 //130k BatteryShield, 180k SlimeVR or fill in external resistor value in kOhm
-// #define BATTERY_SHIELD_R1 100 // Board voltage divider resistor Ain to GND in kOhm
-// #define BATTERY_SHIELD_R2 220 // Board voltage divider resistor Ain to INPUT_BOARD in kOhm
+#define BATTERY_SHIELD_RESISTANCE 0 //130k BatteryShield, 180k SlimeVR or fill in external resistor value in kOhm
+#define BATTERY_SHIELD_R1 12 // Board voltage divider resistor Ain to GND in kOhm
+#define BATTERY_SHIELD_R2 47 // Board voltage divider resistor Ain to INPUT_BOARD in kOhm
 
 // LED configuration:
 // Configuration Priority 1 = Highest:
@@ -75,7 +75,7 @@ IMU_DESC_ENTRY(IMU_BMP160, PRIMARY_IMU_ADDRESS_ONE, IMU_ROTATION, PIN_IMU_SCL, P
 //   LED_PIN
 //     - Number or Symbol (D1,..) of the Output
 //     - To turn off the LED, set LED_PIN to LED_OFF
-//   LED_INVERTED 
+//   LED_INVERTED
 //     - false for output 3.3V on high
 //     - true for pull down to GND on high
 
@@ -91,7 +91,7 @@ IMU_DESC_ENTRY(IMU_BMP160, PRIMARY_IMU_ADDRESS_ONE, IMU_ROTATION, PIN_IMU_SCL, P
   #ifndef BATTERY_SHIELD_RESISTANCE
     #define BATTERY_SHIELD_RESISTANCE 0
   #endif
-  #ifndef BATTERY_SHIELD_R1 
+  #ifndef BATTERY_SHIELD_R1
     #define BATTERY_SHIELD_R1 10
   #endif
   #ifndef BATTERY_SHIELD_R2
@@ -108,24 +108,48 @@ IMU_DESC_ENTRY(IMU_BMP160, PRIMARY_IMU_ADDRESS_ONE, IMU_ROTATION, PIN_IMU_SCL, P
   #ifndef BATTERY_SHIELD_RESISTANCE
     #define BATTERY_SHIELD_RESISTANCE 0
   #endif
-  #ifndef BATTERY_SHIELD_R1 
+  #ifndef BATTERY_SHIELD_R1
     #define BATTERY_SHIELD_R1 10
   #endif
   #ifndef BATTERY_SHIELD_R2
     #define BATTERY_SHIELD_R2 40.2
   #endif
 #elif BOARD == BOARD_NODEMCU || BOARD == BOARD_WEMOSD1MINI
-  #define PIN_IMU_SDA D2
+//   #define PIN_IMU_SDA D2//Ezaki
+//   #define PIN_IMU_SCL D1
+//   #define PIN_IMU_INT D3
+//   #define PIN_IMU_INT_2 D6
+//   #define PIN_BATTERY_LEVEL A0
+
+//   #define PIN_IMU_SDA D2//磷桦PCB
+//   #define PIN_IMU_SCL D3
+//   #define PIN_IMU_INT D1
+//   #define PIN_IMU_INT_2 D6
+//   #define PIN_BATTERY_LEVEL A0
+
+  // #define PIN_IMU_SDA D1//sakura第二批
+  // #define PIN_IMU_SCL D2
+  // #define PIN_IMU_INT D3
+  // #define PIN_IMU_INT_2 D6
+  // #define PIN_BATTERY_LEVEL A0
+
+  // #define PIN_IMU_SDA D2//赤灵
+  // #define PIN_IMU_SCL D1
+  // #define PIN_IMU_INT D6
+  // #define PIN_IMU_INT_2 D7
+  // #define PIN_BATTERY_LEVEL A0
+
+  #define PIN_IMU_SDA D2//自用
   #define PIN_IMU_SCL D1
   #define PIN_IMU_INT D5
   #define PIN_IMU_INT_2 D6
   #define PIN_BATTERY_LEVEL A0
-//  #define LED_PIN 2
-//  #define LED_INVERTED true
+ #define LED_PIN 2
+ #define LED_INVERTED true
   #ifndef BATTERY_SHIELD_RESISTANCE
     #define BATTERY_SHIELD_RESISTANCE 180
   #endif
-  #ifndef BATTERY_SHIELD_R1 
+  #ifndef BATTERY_SHIELD_R1
     #define BATTERY_SHIELD_R1 100
   #endif
   #ifndef BATTERY_SHIELD_R2

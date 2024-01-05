@@ -62,7 +62,7 @@
 // Packet bundling/aggregation
 #define PACKET_BUNDLING PACKET_BUNDLING_BUFFERED
 // Extra tunable for PACKET_BUNDLING_BUFFERED (10000us = 10ms timeout, 100hz target)
-#define PACKET_BUNDLING_BUFFER_SIZE_MICROS 10000
+#define PACKET_BUNDLING_BUFFER_SIZE_MICROS 15000
 
 // Setup for the Magnetometer
 #define useFullCalibrationMatrix true

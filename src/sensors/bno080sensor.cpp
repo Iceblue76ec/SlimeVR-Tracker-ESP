@@ -56,18 +56,23 @@ void BNO080Sensor::motionSetup()
 #if USE_6_AXIS
     if ((sensorType == IMU_BNO085 || sensorType == IMU_BNO086) && BNO_USE_ARVR_STABILIZATION) {
         imu.enableARVRStabilizedGameRotationVector(10);
+		m_Logger.info("enable ARVR Stabilized Game Rotation Vector");
     } else {
         imu.enableGameRotationVector(10);
-    }  
+		m_Logger.info("enable Game Rotation Vector");
+    }
 
     #if BNO_USE_MAGNETOMETER_CORRECTION
     imu.enableRotationVector(1000);
+	m_Logger.info("enable Rotation Vector");
     #endif
 #else
     if ((sensorType == IMU_BNO085 || sensorType == IMU_BNO086) && BNO_USE_ARVR_STABILIZATION) {
         imu.enableARVRStabilizedRotationVector(10);
+		m_Logger.info("enable ARVR Stabilized Rotation Vector");
     } else {
         imu.enableRotationVector(10);
+		m_Logger.info("enable Rotation Vector");
     }
 #endif
 
@@ -77,10 +82,12 @@ void BNO080Sensor::motionSetup()
     imu.enableRawMagnetometer(10);
 #endif
 
+
     lastReset = 0;
     lastData = millis();
     working = true;
     configured = true;
+
 }
 
 void BNO080Sensor::motionLoop()
