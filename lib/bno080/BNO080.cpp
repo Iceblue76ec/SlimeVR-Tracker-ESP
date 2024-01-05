@@ -1276,6 +1276,36 @@ void BNO080::enableActivityClassifier(uint16_t timeBetweenReports, uint32_t acti
 	setFeatureCommand(SENSOR_REPORTID_PERSONAL_ACTIVITY_CLASSIFIER, timeBetweenReports, activitiesToEnable);
 }
 
+//Sends the commands to begin calibration of the accelerometer
+void BNO080::calibrateAccelerometer()
+{
+	sendCalibrateCommand(CALIBRATE_ACCEL);
+}
+
+//Sends the commands to begin calibration of the gyro
+void BNO080::calibrateGyro()
+{
+	sendCalibrateCommand(CALIBRATE_GYRO);
+}
+
+//Sends the commands to begin calibration of the magnetometer
+void BNO080::calibrateMagnetometer()
+{
+	sendCalibrateCommand(CALIBRATE_MAG);
+}
+
+//Sends the commands to begin calibration of the planar accelerometer
+void BNO080::calibratePlanarAccelerometer()
+{
+	sendCalibrateCommand(CALIBRATE_PLANAR_ACCEL);
+}
+
+//See 2.2 of the Calibration Procedure document 1000-4044
+void BNO080::calibrateAll()
+{
+	sendCalibrateCommand(CALIBRATE_ACCEL_GYRO_MAG);
+}
+
 void BNO080::endCalibration()
 {
 	sendCalibrateCommand(0); //Disables all calibrations

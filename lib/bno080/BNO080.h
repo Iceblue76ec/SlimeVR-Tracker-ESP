@@ -129,6 +129,13 @@ const byte CHANNEL_GYRO = 5;
 #define COMMAND_OSCILLATOR 10
 #define COMMAND_CLEAR_DCD 11
 
+#define CALIBRATE_ACCEL 0
+#define CALIBRATE_GYRO 1
+#define CALIBRATE_MAG 2
+#define CALIBRATE_PLANAR_ACCEL 3
+#define CALIBRATE_ACCEL_GYRO_MAG 4
+#define CALIBRATE_STOP 5
+
 #define SH2_CAL_ACCEL (0x01)
 #define SH2_CAL_GYRO_IN_HAND  (0x02)
 #define SH2_CAL_MAG   (0x04)
@@ -237,7 +244,12 @@ public:
 	float getMagY();
 	float getMagZ();
 	uint8_t getMagAccuracy();
-	
+
+	void calibrateAccelerometer();
+	void calibrateGyro();
+	void calibrateMagnetometer();
+	void calibratePlanarAccelerometer();
+	void calibrateAll();
 	void endCalibration();
 	void saveCalibration();
 	void requestCalibrationStatus(); //Sends command to get status
