@@ -90,12 +90,14 @@ void BNO080Sensor::motionSetup()
     working = true;
     configured = true;
 
+#if BNO_BOOT_AUTO_CALIBRATION
 	// 状态判断器
 	imu.enableStabilityClassifier(10);
 	// 开启信息回报才能知道精度参数
 	imu.enableAccelerometer(50);
 	imu.enableGyro(50);
 	imu.enableMagnetometer(50);
+#endif
 }
 
 void BNO080Sensor::motionLoop()
@@ -181,6 +183,7 @@ void BNO080Sensor::motionLoop()
         if (m_IntPin == 255 || imu.I2CTimedOut())
             break;
 
+		#if BNO_BOOT_AUTO_CALIBRATION
 		// 开机校准相关
 		if (!calibStopped && millis()%100==0) {
 			// 串口打印运动状态
@@ -192,6 +195,7 @@ void BNO080Sensor::motionLoop()
 				imu.calibrateAll();
 				#else
 				// todo：桌面平放状态没法考虑到加速度计的校准
+				// imu.calibrateAccelerometer();
 				imu.calibrateGyro();
 				#endif
 				calibStarted = true;
@@ -232,6 +236,7 @@ void BNO080Sensor::motionLoop()
 				m_Logger.info("自动校准结束");
 			}
 		}
+		#endif //选择性编译开机自校准部分
 	}
 	// 异常状态处理
     if (lastData + 1000 < millis() && configured)
