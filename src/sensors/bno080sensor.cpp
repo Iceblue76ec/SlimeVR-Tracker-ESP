@@ -188,20 +188,17 @@ void BNO080Sensor::motionLoop()
 		if (!calibStopped && millis()%100==0) {
 			// 串口打印运动状态
 			printStabilityClassifier(imu.getStabilityClassifier());
-			// 当设备开机15秒内 且 不运动 且陀螺仪精度低于高 启动校准
-			if (!calibStarted && millis() < 15000 && imu.getStabilityClassifier() != 4 && imu.getStabilityClassifier() != 5 && imu.getGyroAccuracy()<3) {
+            printAccuracyLevel("accelAccuracy",imu.getAccelAccuracy());
+            printAccuracyLevel("gyroAccuracy",imu.getGyroAccuracy());
+            m_Logger.info("当设备开机15秒内 且 在桌面上 且陀螺仪精度低于高 启动校准");
+			if (!calibStarted && millis() < 15000 && imu.getStabilityClassifier() == 1 && imu.getGyroAccuracy()<3) {
 				// 启动校准
-				#if BNO_USE_MAGNETOMETER_CORRECTION
-				imu.calibrateAll();
-				#else
-				// todo：桌面平放状态没法考虑到加速度计的校准
-				// imu.calibrateAccelerometer();
-				imu.calibrateGyro();
-				#endif
+                m_Logger.info("进入校准");
+                imu.calibrateGyro();
+                m_Logger.info("陀螺仪开始校准");
 				calibStarted = true;
 				// 校准时LED快速闪烁
-				ledManager.blink(150);
-				m_Logger.info("桌面条件满足，启动校准");
+				ledManager.blink(150);  
 			}
 			// 校准已经启动，且校准未完成
 			if (calibStarted && !calibStopped) {
@@ -211,29 +208,47 @@ void BNO080Sensor::motionLoop()
 					{
 						printAccuracyLevel("accelAccuracy",imu.getAccelAccuracy());
 						printAccuracyLevel("gyroAccuracy",imu.getGyroAccuracy());
-						printAccuracyLevel("magAccuracy",imu.getMagAccuracy());
+                        //#if calibrateAll
+						//printAccuracyLevel("magAccuracy",imu.getMagAccuracy());
+                        //#endif
 					}
 				}
-				// 保存校准，陀螺仪校准精度低于high不保存
-				if (imu.getGyroAccuracy() == 3) {
+                // 单独陀螺仪保存校准，加速度计校准状态 且 陀螺仪校准精度低于high 不保存
+                if (!calibAccelerometerStarted && imu.getGyroAccuracy() == 3) 
+                {
+					imu.saveCalibration();
+					imu.endCalibration();
+					m_Logger.info("陀螺仪精度合格，保存校准");
+                    //陀螺仪校准参数保存之后再开始加速度计校准
+                    imu.calibrateAccelerometer();
+                    m_Logger.info("加速度计开始校准");
+				    calibAccelerometerStarted = true;
+                    // 校准时LED快速闪烁
+				    ledManager.blink(150);
+                }
+				// 单独加速度计保存校准，加速度计校准精度低于high 不保存
+				if (imu.getAccelAccuracy() == 3) {
 					imu.saveCalibration();
 					imu.endCalibration();
 					calibStopped = true;
-					#if BNO_USE_MAGNETOMETER_CORRECTION
-					// 9轴模式一直保持磁力计自校准也许对环境适应能力更强
-					imu.calibrateMagnetometer();
-					#endif
-					m_Logger.info("精度合格，保存校准");
+					m_Logger.info("加速度计精度合格，保存校准");
 				}
 			}
 			// 如果预设校准时间结束(开机30秒内) 或
-			// slime处于运动状态，则校准强制结束且不保存校准信息
-			if (millis() > 30000 || (calibStarted && imu.getStabilityClassifier() == 4)) {
+			// slime处于运动状态，则校准强制结束且不保存校准信息 
+			if (millis() > 30000 && !calibStopped) {
 				imu.endCalibration();
-
 				calibStopped = true;
 				ledManager.off();
 				m_Logger.info("自动校准结束");
+                #if BNO_USE_MAGNETOMETER_CORRECTION
+				// 9轴模式一直保持磁力计自校准也许对环境适应能力更强
+					imu.calibrateMagnetometer();
+                    m_Logger.info("Mag修正模式,保留Mag校准");
+                    printAccuracyLevel("magAccuracy",imu.getMagAccuracy());
+				#endif
+                printAccuracyLevel("accelAccuracy",imu.getAccelAccuracy());
+				printAccuracyLevel("gyroAccuracy",imu.getGyroAccuracy());
 			}
 		}
 		#endif //选择性编译开机自校准部分
