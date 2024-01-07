@@ -27,15 +27,15 @@
 
 // Set parameters of IMU and board used
 #define IMU IMU_BNO085
-//#define SECOND_IMU IMU//_BMI160
-#define BOARD BOARD_Styria
-#define IMU_ROTATION DEG_180
-//#define SECOND_IMU_ROTATION DEG_0
+#define SECOND_IMU IMU//_BMI160
+#define BOARD BOARD_NODEMCU
+#define IMU_ROTATION DEG_0
+#define SECOND_IMU_ROTATION DEG_0
 
 #define PRIMARY_IMU_OPTIONAL false
 #define SECONDARY_IMU_OPTIONAL true
 
-#define MAX_IMU_COUNT 1
+#define MAX_IMU_COUNT 2
 
 // Axis mapping example
 /*
@@ -63,9 +63,9 @@ IMU_DESC_ENTRY(IMU_BMP160, PRIMARY_IMU_ADDRESS_ONE, IMU_ROTATION, PIN_IMU_SCL, P
 // For other boards you can now adjust the other resistor values.
 // The diagram looks like this:
 //   (Battery)--- [BATTERY_SHIELD_RESISTANCE] ---(INPUT_BOARD)---  [BATTERY_SHIELD_R2] ---(ESP32_INPUT)--- [BATTERY_SHIELD_R1] --- (GND)
-//#define BATTERY_SHIELD_RESISTANCE 0 //130k BatteryShield, 180k SlimeVR or fill in external resistor value in kOhm
-//#define BATTERY_SHIELD_R1 12 // Board voltage divider resistor Ain to GND in kOhm
-//#define BATTERY_SHIELD_R2 47 // Board voltage divider resistor Ain to INPUT_BOARD in kOhm
+#define BATTERY_SHIELD_RESISTANCE 0 //130k BatteryShield, 180k SlimeVR or fill in external resistor value in kOhm
+#define BATTERY_SHIELD_R1 12 // Board voltage divider resistor Ain to GND in kOhm
+#define BATTERY_SHIELD_R2 47 // Board voltage divider resistor Ain to INPUT_BOARD in kOhm
 
 // LED configuration:
 // Configuration Priority 1 = Highest:
