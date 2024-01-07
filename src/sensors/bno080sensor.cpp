@@ -190,12 +190,12 @@ void BNO080Sensor::motionLoop()
 			printStabilityClassifier(imu.getStabilityClassifier());
             printAccuracyLevel("accelAccuracy",imu.getAccelAccuracy());
             printAccuracyLevel("gyroAccuracy",imu.getGyroAccuracy());
-            //m_Logger.info("当设备开机15秒内 且 在桌面上 且陀螺仪精度低于高 启动校准");
+            m_Logger.info("当设备开机15秒内 且 在桌面上 且陀螺仪精度低于高 启动校准");
 			if (!calibStarted && millis() < 15000 && imu.getStabilityClassifier() == 1 && imu.getGyroAccuracy()<3) {
 				// 启动校准
                 m_Logger.info("进入校准");
                 imu.calibrateGyro();
-                m_Logger.info("陀螺仪校准");
+                m_Logger.info("陀螺仪开始校准");
 				calibStarted = true;
 				// 校准时LED快速闪烁
 				ledManager.blink(150);  
@@ -221,7 +221,7 @@ void BNO080Sensor::motionLoop()
 					m_Logger.info("陀螺仪精度合格，保存校准");
                     //陀螺仪校准参数保存之后再开始加速度计校准
                     imu.calibrateAccelerometer();
-                    m_Logger.info("加速度计校准");
+                    m_Logger.info("加速度计开始校准");
 				    calibAccelerometerStarted = true;
                     // 校准时LED快速闪烁
 				    ledManager.blink(150);
