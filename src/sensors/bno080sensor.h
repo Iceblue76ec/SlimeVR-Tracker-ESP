@@ -62,6 +62,8 @@ private:
 	// 关于BNO自动校准要用的参数
     bool calibStopped = false;
 	bool calibStarted = false;
+    bool calibAccelerometerStarted = false;
+    //bool savecalibGyro = false;
 };
 
 #endif
