@@ -80,25 +80,7 @@ IMU_DESC_ENTRY(IMU_BMP160, PRIMARY_IMU_ADDRESS_ONE, IMU_ROTATION, PIN_IMU_SCL, P
 //     - true for pull down to GND on high
 
 // Board-specific configurations
-//Styria板
-#if BOARD == BOARD_Styria
-  #define PIN_IMU_SDA 04
-  #define PIN_IMU_SCL 05
-  #define PIN_IMU_INT 14
-  #define PIN_IMU_INT_2 12
-  #define PIN_BATTERY_LEVEL A0
-  #define LED_PIN 2
-  #define LED_INVERTED true
-  #ifndef BATTERY_SHIELD_RESISTANCE
-    #define BATTERY_SHIELD_RESISTANCE 140
-  #endif
-  #ifndef BATTERY_SHIELD_R1
-    #define BATTERY_SHIELD_R1 200
-  #endif
-  #ifndef BATTERY_SHIELD_R2
-    #define BATTERY_SHIELD_R2 500
-  #endif
-#elif BOARD == BOARD_SLIMEVR_LEGACY || BOARD == BOARD_SLIMEVR_DEV
+#if BOARD == BOARD_SLIMEVR_LEGACY || BOARD == BOARD_SLIMEVR_DEV
   #define PIN_IMU_SDA 4
   #define PIN_IMU_SCL 5
   #define PIN_IMU_INT 10
