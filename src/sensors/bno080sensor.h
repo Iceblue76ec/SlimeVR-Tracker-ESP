@@ -43,6 +43,11 @@ public:
     void startCalibration(int calibrationType) override final;
     SensorStatus getSensorState() override final;
 
+	void printStabilityClassifier();
+	void printAccelAccuracyLevel();
+	void printGyroAccuracyLevel();
+	void printMagAccuracyLevel();
+
 private:
     BNO080 imu{};
 
