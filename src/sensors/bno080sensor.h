@@ -43,10 +43,12 @@ public:
     void startCalibration(int calibrationType) override final;
     SensorStatus getSensorState() override final;
 
+	// 自动校准的串口打印函数
 	void printStabilityClassifier();
 	void printAccelAccuracyLevel();
 	void printGyroAccuracyLevel();
 	void printMagAccuracyLevel();
+	void bootAutoCalibration();
 
 private:
     BNO080 imu{};
@@ -68,6 +70,7 @@ private:
     bool calibStopped = false;
 	bool calibStarted = false;
     bool calibAccelerometerStarted = false;
+
     //bool savecalibGyro = false;
 };
 

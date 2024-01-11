@@ -91,9 +91,9 @@ void BNO080Sensor::motionSetup()
 	// 状态判断器
 	imu.enableStabilityClassifier(10);
 	// 开启信息回报才能知道精度参数
-	imu.enableAccelerometer(10);
-	imu.enableGyro(10);
-	imu.enableMagnetometer(10);
+	imu.enableAccelerometer(50);
+	imu.enableGyro(50);
+	imu.enableMagnetometer(50);
 #endif
 }
 
@@ -181,80 +181,7 @@ void BNO080Sensor::motionLoop()
             break;
 
 #if BNO_BOOT_AUTO_CALIBRATION
-		// 开机校准相关
-		if (!calibStopped && millis() % 100 == 0)
-		{
-			// 串口打印运动状态
-			// TODO：测试稳定后删掉此处输出，打印太多了，日志很乱
-			printStabilityClassifier();
-			printAccelAccuracyLevel();
-			printGyroAccuracyLevel();
-			// TODO：已修改陀螺仪汇报频率，也许能解决开机陀螺仪精度低问题，待测试
-			m_Logger.info("当设备开机15秒内 且 在桌面上 且陀螺仪精度低于高 启动校准");
-			if (!calibStarted && millis() < 15000 && imu.getStabilityClassifier() == 1
-				&& imu.getGyroAccuracy() < 3) {
-				// 启动校准
-				m_Logger.info("进入校准");
-				imu.calibrateGyro();
-				m_Logger.info("陀螺仪开始校准");
-				calibStarted = true;
-				// 校准时LED快速闪烁 todo：校准太快了，不明显,改成常亮试试
-				ledManager.on();
-			}
-			// 校准已经启动，且校准未完成
-			if (calibStarted && !calibStopped) {
-				if (millis() % 200 == 0) {
-					m_Logger.info("校准中……");
-					// 串口打印精度
-					printAccelAccuracyLevel();
-					printGyroAccuracyLevel();
-#if BNO_BOOT_AUTO_CALIBRATION_Mag
-					printMagAccuracyLevel();
-#endif
-				}
-#if BNO_BOOT_AUTO_CALIBRATION_ACCEL
-				// 单独陀螺仪保存校准，加速度计校准状态 且 陀螺仪校准精度低于high 不保存
-				if (!calibAccelerometerStarted && imu.getGyroAccuracy() == 3) {
-					imu.saveCalibration();
-					m_Logger.info("Gyro ok,saved");
-					imu.calibrateAccelerometer();
-					m_Logger.info("cali Accel……");
-					calibAccelerometerStarted = true;
-				}
-				// 单独加速度计保存校准，加速度计校准精度低于high 不保存
-				if (calibAccelerometerStarted && imu.getAccelAccuracy() == 3) {
-					imu.saveCalibration();
-					imu.endCalibration();
-					calibStopped = true;
-					m_Logger.info("加速度计精度合格，保存校准");
-				}
-#else
-				if (imu.getGyroAccuracy() == 3) {
-					imu.endCalibration();
-					imu.saveCalibration();
-					m_Logger.info("Gyro ok,saved");
-					calibStopped = true;
-				}
-			}
-#endif
-
-			// 如果预设校准时间结束(开机30秒内) 或
-			// slime处于运动状态，则校准强制结束且不保存校准信息
-			if (millis() > 30000 && !calibStopped) {
-				imu.endCalibration();
-				calibStopped = true;
-				ledManager.off();
-				m_Logger.info("自动校准结束");
-				printAccelAccuracyLevel();
-				printGyroAccuracyLevel();
-#if BNO_USE_MAGNETOMETER_CORRECTION
-				// 9轴模式一直保持磁力计自校准也许对环境适应能力更强
-				imu.calibrateMagnetometer();
-				m_Logger.info("Mag修正模式,保留Mag校准");
-				printMagAccuracyLevel();
-#endif
-			}
-		}
+	bootAutoCalibration();
 #endif  // 选择性编译开机自校准部分
 	// 异常状态处理
     if (lastData + 1000 < millis() && configured)
@@ -335,60 +262,160 @@ void BNO080Sensor::startCalibration(int calibrationType)
     // that is disabled 30 seconds after startup
 }
 
-// Given a accuracy number, print what it means
-void BNO080Sensor::printAccelAccuracyLevel() {
-	switch (imu.getAccelAccuracy())
-	{
-	case 0:m_Logger.info("Accel Unreliable");break;
-	case 1:m_Logger.info("Accel Low");break;
-	case 2:m_Logger.info("Accel Medium");break;
-	case 3:m_Logger.info("Accel High");break;
-	default:
-		break;
+void BNO080Sensor::bootAutoCalibration() {
+	// 开机1.5s后（过早读取的陀螺仪数据不准），开始考虑是否校准
+	if (!calibStopped && millis() > 1500) {
+		// 串口打印运动状态
+		// TODO：测试稳定后删掉此处输出，打印太多了，日志很乱
+		printStabilityClassifier();
+		printAccelAccuracyLevel();
+		printGyroAccuracyLevel();
+		// 当设备开机15秒内 且 在桌面上 且陀螺仪精度低于高 启动校准
+		if (!calibStarted && millis() < 15000 && imu.getStabilityClassifier() == 1
+			&& imu.getGyroAccuracy() < 3) {
+			// 启动校准
+			m_Logger.info("进入校准");
+			imu.calibrateGyro();
+			m_Logger.info("陀螺仪开始校准");
+			calibStarted = true;
+			// 校准时LED常亮
+			ledManager.on();
+		}
+		// 校准已经启动，且校准未完成
+		if (calibStarted && !calibStopped) {
+			{
+				m_Logger.info("校准中……");
+				// 串口打印精度
+				printAccelAccuracyLevel();
+				printGyroAccuracyLevel();
+#if BNO_BOOT_AUTO_CALIBRATION_Mag
+				printMagAccuracyLevel();
+#endif
+			}
+#if BNO_BOOT_AUTO_CALIBRATION_ACCEL
+			// 单独陀螺仪保存校准，加速度计校准状态 且 陀螺仪校准精度低于high 不保存
+			if (!calibAccelerometerStarted && imu.getGyroAccuracy() == 3) {
+				imu.saveCalibration();
+				m_Logger.info("Gyro ok,saved");
+				imu.calibrateAccelerometer();
+				m_Logger.info("cali Accel……");
+				calibAccelerometerStarted = true;
+			}
+			// 单独加速度计保存校准，加速度计校准精度低于high 不保存
+			if (calibAccelerometerStarted && imu.getAccelAccuracy() == 3) {
+				imu.saveCalibration();
+				imu.endCalibration();
+				calibStopped = true;
+				m_Logger.info("加速度计精度合格，保存校准");
+			}
+#else
+			if (imu.getGyroAccuracy() == 3) {
+				imu.endCalibration();
+				imu.saveCalibration();
+				m_Logger.info("Gyro ok,saved");
+				calibStopped = true;
+			}
+		}
+#endif
+
+			// 如果预设校准时间结束(开机30秒内) 或
+			// slime处于运动状态，则校准强制结束且不保存校准信息
+			if (millis() > 30000 || calibStopped) {
+				imu.endCalibration();
+				calibStopped = true;
+				ledManager.off();
+				m_Logger.info("自动校准结束");
+#if BNO_USE_MAGNETOMETER_CORRECTION
+				// 9轴模式一直保持磁力计自校准也许对环境适应能力更强
+				imu.calibrateMagnetometer();
+				m_Logger.info("Mag修正模式,保留Mag校准");
+				printMagAccuracyLevel();
+#endif
+			}
+		}
 	}
 
-}
-// Given a accuracy number, print what it means
-void BNO080Sensor::printGyroAccuracyLevel() {
-	switch (imu.getGyroAccuracy())
-	{
-	case 0:m_Logger.info("Gyro Unreliable");break;
-	case 1:m_Logger.info("Gyro Low");break;
-	case 2:m_Logger.info("Gyro Medium");break;
-	case 3:m_Logger.info("Gyro High");break;
-	default:
-		break;
+	// Given a accuracy number, print what it means
+	void BNO080Sensor::printAccelAccuracyLevel() {
+		switch (imu.getAccelAccuracy()) {
+			case 0:
+				m_Logger.info("Accel Unreliable");
+				break;
+			case 1:
+				m_Logger.info("Accel Low");
+				break;
+			case 2:
+				m_Logger.info("Accel Medium");
+				break;
+			case 3:
+				m_Logger.info("Accel High");
+				break;
+			default:
+				break;
+		}
 	}
-}
-// Given a accuracy number, print what it means
-void BNO080Sensor::printMagAccuracyLevel() {
-	switch (imu.getMagAccuracy())
-	{
-	case 0:m_Logger.info("Mag Unreliable");break;
-	case 1:m_Logger.info("Mag Low");break;
-	case 2:m_Logger.info("Mag Medium");break;
-	case 3:m_Logger.info("Mag High");break;
-	default:
-		break;
+	// Given a accuracy number, print what it means
+	void BNO080Sensor::printGyroAccuracyLevel() {
+		switch (imu.getGyroAccuracy()) {
+			case 0:
+				m_Logger.info("Gyro Unreliable");
+				break;
+			case 1:
+				m_Logger.info("Gyro Low");
+				break;
+			case 2:
+				m_Logger.info("Gyro Medium");
+				break;
+			case 3:
+				m_Logger.info("Gyro High");
+				break;
+			default:
+				break;
+		}
 	}
-}
+	// Given a accuracy number, print what it means
+	void BNO080Sensor::printMagAccuracyLevel() {
+		switch (imu.getMagAccuracy()) {
+			case 0:
+				m_Logger.info("Mag Unreliable");
+				break;
+			case 1:
+				m_Logger.info("Mag Low");
+				break;
+			case 2:
+				m_Logger.info("Mag Medium");
+				break;
+			case 3:
+				m_Logger.info("Mag High");
+				break;
+			default:
+				break;
+		}
+	}
 
-// Given a StabilityClassifier number, print what it means
-void BNO080Sensor::printStabilityClassifier()
-{
-	// 0 - 未知
-    // 1 - 在桌子上
-    // 2 - 静止
-    // 3 - 稳定
-    // 4 - 运动
-    // 5 - 保留
-	switch (imu.getStabilityClassifier())
-	{
-	case 1:m_Logger.info("状态:桌上");break;
-	case 2:m_Logger.info("状态:稳定");break;
-	case 3:m_Logger.info("状态:静止");break;
-	case 4:m_Logger.info("状态:运动");break;
-	default:m_Logger.info("状态:未知");break;
+	// Given a StabilityClassifier number, print what it means
+	void BNO080Sensor::printStabilityClassifier() {
+		// 0 - 未知
+		// 1 - 在桌子上
+		// 2 - 静止
+		// 3 - 稳定
+		// 4 - 运动
+		// 5 - 保留
+		switch (imu.getStabilityClassifier()) {
+			case 1:
+				m_Logger.info("状态:桌上");
+				break;
+			case 2:
+				m_Logger.info("状态:稳定");
+				break;
+			case 3:
+				m_Logger.info("状态:静止");
+				break;
+			case 4:
+				m_Logger.info("状态:运动");
+				break;
+			default:
+				m_Logger.info("状态:未知");
+				break;
+		}
 	}
-}
-
