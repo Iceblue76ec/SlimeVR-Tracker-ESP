@@ -1,125 +1,204 @@
-# SlimeVR Tracker firmware for ESP
+# 关于BNO085自动校准固件
+该文档记录了关于BNO08X开机自校准的尝试，预期是让BNO能达到最理想的精度和稳定性。
+## 1.第一个自动校准校准版本
 
-Firmware for ESP8266 / ESP32 microcontrollers and different IMU sensors to use them as a vive-like trackers in VR.
+从github仓库：https://github.com/Timocop/PSMoveServiceEx-SlimeVR-Tracker-ESP
 
-Requires [SlimeVR Server](https://github.com/SlimeVR/SlimeVR-Server) to work with SteamVR and resolve pose. Should be compatible with [owoTrack](https://github.com/abb128/owo-track-driver), but is not guaranteed.
+的历史提交中考古出来
 
-## Configuration
+### BNO080Sensor::motionSetup(){
 
-Firmware configuration is located in the `defines.h` file. For more information on how to configure your firmware, refer to the [Configuring the firmware project section of SlimeVR documentation](https://docs.slimevr.dev/firmware/configuring-project.html).
+```c++
+void BNO080Sensor::motionSetup(){
+    #if USE_6_AXIS
+    #if (IMU == IMU_BNO085 || IMU == IMU_BNO086) && BNO_USE_ARVR_STABILIZATION
+    imu.enableARVRStabilizedGameRotationVector(10);
+    #else
+    imu.enableGameRotationVector(10);
+    #endif
 
-## Compatibility
+    #if BNO_USE_MAGNETOMETER_CORRECTION
+    imu.enableRotationVector(1000);
+    #endif
+#else
+    #if (IMU == IMU_BNO085 || IMU == IMU_BNO086) && BNO_USE_ARVR_STABILIZATION
+    imu.enableARVRStabilizedRotationVector(10);
+    #else
+    imu.enableRotationVector(10);
+    #endif
+#endif
 
-The following IMUs and their corresponding `IMU` values are supported by the firmware:
-* BNO085 & BNO086 (IMU_BNO085)
-  * Using any fusion in internal DMP. Best results with ARVR Stabilized Game Rotation Vector or ARVR Stabilized Rotation Vector if in good magnetic environment.
-* BNO080 (IMU_BNO080)
-  * Using any fusion in internal DMP. Doesn't have BNO085's ARVR stabilization, but still gives good results.
-* MPU-6500 (IMU_MPU6500) & MPU-6050 (IMU_MPU6050)
-  * Using internal DMP to fuse Gyroscope and Accelerometer. Can drift substantially.
-  * NOTE: Currently the MPU will auto calibrate when powered on. You *must* place it on the ground and *DO NOT* move it until calibration is complete (for a few seconds). **LED on the ESP will blink 5 times after calibration is over.**
-* BNO055 (IMU_BNO055)
-  * Performs much worse than BNO080, despite having the same hardware. Not recommended for use.
-* MPU-9250 (IMU_MPU9250)
-  * Using Mahony sensor fusion of Gyroscope, Magnetometer and Accelerometer, requires good magnetic environment.
-  * See *Sensor calibration* below for info on calibrating this sensor.
-  * Specify `IMU_MPU6500` in your `defines.h` to use without magnetometer in 6DoF mode.
-  * Experimental support!
-* BMI160 (IMU_BMI160)
-  * Using sensor fusion of Gyroscope and Accelerometer.
-  * **See Sensor calibration** below for info on calibrating this sensor.
-  * Calibration file format is unstable and may not be able to load using newer firmware versions.
-  * Experimental support!
-  * Support for the following magnetometers is implemented (even more experimental): HMC5883L, QMC5883L.
-* ICM-20948 (IMU_ICM20948)
-  * Using fusion in internal DMP for 6Dof or 9DoF, 9DoF mode requires good magnetic environment.
-  * Comment out `USE_6DOF` in `debug.h` for 9DoF mode.
-  * Experimental support!
+    imu.enableTapDetector(100);
+    //判断085的运动状态 在桌上/静止/运动
+    imu.enableStabilityClassifier(100);
 
-Firmware can work with both ESP8266 and ESP32. Please edit `defines.h` and set your pinout properly according to how you connected the IMU.
+#if ENABLE_INSPECTION
+    imu.enableRawGyro(10);
+    imu.enableRawAccelerometer(10);
+    imu.enableRawMagnetometer(10);
+#endif
 
-## Sensor calibration
+    lastReset = 0;
+    lastData = millis();
+    working = true;
+    configured = true;
+    lastCalib = millis();
+    calibStopped = false;
 
-*It is generally recommended to turn trackers on and let them lay down on a flat surface for a few seconds.** This will calibrate them better.
+    // startCalibration() executes too soon before parameters have set
+    initCalibration();
+}
+```
 
-**Some trackers require special calibration steps on startup:**
-### MPU-9250
-  * Turn them on with chip facing down. Flip up and put on a surface for a couple of seconds, the LED will light up.
-  * After a few blinks, the LED will light up again
-  * Slowly rotate the tracker in an 8-motion facing different directions for about 30 seconds, while LED is blinking
-  * LED will turn off when calibration is complete
-  * You don't have to calibrate next time you power it on, calibration values will be saved for the next use
+### src/debug.h
 
-### BMI160
+配置里多了一个参数
 
-  If you have any problems with this procedure, connect the device via USB and open the serial console to check for any warnings or errors that may indicate hardware problems.
+```c++
+src/debug.h
+#define BNO_USE_MAGNETOMETER_CORRECTION false // Set to true to enable magnetometer correction for BNO08x IMUs. Only works with USE_6_AXIS set to true
+#define BNO_SELF_CALIBRATION_TIME 30000 // 如果 BNO8x 应及时停止自校准，则将值设置为非零（以毫秒为单位）
+#define USE_6_AXIS true // uses 9 DoF (with mag) if false (only for ICM-20948 and BNO0xx currently)
+```
 
-  - **Step 0: Power up with the chip facing down.** Or press the reset/reboot button.
+### BNO080Sensor::motionLoop(){
 
-    > The LED will be lit continuously. If you have the tracker connected via USB and open the serial console, you will see text prompts in addition to the LEDs. You can only calibrate 1 IMU at a time.
+运行时校准新：
 
-    Flip it back up while the LED is still solid. Wait a few seconds, do not touch the device.
-    
-  - **Step 1: It will flash 3 times when gyroscope calibration begins.**
+```c++
+void BNO080Sensor::motionLoop(){
+    // $TODO 只保存好的准确度
+    if(BNO_SELF_CALIBRATION_TIME > 0 && lastCalib + BNO_SELF_CALIBRATION_TIME < millis() && !calibStopped)
+    {
+        calibStopped = true;
+        saveCalibration();
+        imu.endCalibration();
+        m_Logger.info("Calibration ended");
+        m_Logger.info("Calibration accuracy: %d", calibrationAccuracy);
+    }
+}
+```
 
-    > If done incorrectly, this step is the most likely source of constant drift.
+运行时校准旧：
 
-    Make sure the tracker does not move or vibrate for 5 seconds - still do not touch it.
+缺点，会暂停整个主线程
 
-  - **Step 2: It will flash 6 times when accelerometer calibration begins.**
+```c++
+void BNO080Sensor::motionLoop(){
+	if(BNO_SELF_CALIBRATION_TIME > 0 && lastCalib + BNO_SELF_CALIBRATION_TIME < millis() && !calibStopped)
+    {
+        calibStopped = true;
 
-    > The accelerometer calibration process requires you to **hold the device in 6 unique orientations** (e.g. sides of a cube),
-    > keep it still, and not hold or touch for 3 seconds each. It uses gravity as a reference and automatically detects when it is stabilized - this process is not time-sensitive.
+        do
+        {
+            ledManager.on();
+            imu.requestCalibrationStatus();
+            delay(20);
+            imu.getReadings();
+            ledManager.off();
+            delay(20);
+        } while (!imu.calibrationComplete());
+        imu.saveCalibration();
 
-    > If you are unable to keep it on a flat surface without touching, press the device against a wall, it does not have to be absolutely perfect.
+        imu.endCalibration();
+        m_Logger.error("Calibration ended");
+    }
+	}
+}
+```
 
-    **There will be two very short blinks when each position is recorded.**
-    
-    Rotate the device 90 or 180 degrees in any direction. It should be on a different side each time. Continue to rotate until all 6 sides have been recorded.
-    
-    The last position has a long flash when recorded, indicating exit from calibration mode.
+### BNO080Sensor::initCalibration()
 
-  #### Additional info for BMI160
-  - For best results, **calibrate when the trackers are warmed up** - put them on for a few minutes,
-    wait for the temperature to stabilize at 30-40 degrees C, then calibrate.
-    Enable developer mode in SlimeVR settings to see tracker temperature.
+开机时仅在稳定时才开始校准
 
-  - There is a legacy accelerometer calibration method that collects data during in-place rotation by holding it in hand instead.
-    If you are absolutely unable to use the default 6-point calibration method, you can switch it in config file `defines_bmi160.h`.
+```c++
+void BNO080Sensor::initCalibration()
+{
+    ledManager.pattern(20, 20, 10);
+    ledManager.blink(2000);
 
-  - For faster recalibration, you disable accelerometer calibration by setting `BMI160_ACCEL_CALIBRATION_METHOD` option to `ACCEL_CALIBRATION_METHOD_SKIP` in `defines_bmi160.h`.
-    Accelerometer calibration can be safely skipped if you don't have issues with pitch and roll.
-    You can check it by enabling developer mode in SlimeVR settings (*General / Interface*) and going back to the *"Home"* tab.
-    Press *"Preview"* button inside the tracker settings (of each tracker) to show the IMU visualizer.
-    Check if pitch/roll resembles its real orientation.
+    //当设备不运动时开始校准
+    // 0 - 未知
+    // 1 - 在桌子上
+    // 2 - 静止
+    // 3 - 稳定
+    // 4 - 运动
+    // 5 - 保留
 
-  - Calibration data is written to the flash of your MCU and is unique for each BMI160, keep that in mind if you have detachable aux trackers.
+    do
+    {
+        ledManager.on();
+        delay(20);
+        imu.getReadings();
+        ledManager.off();
+        delay(20);
 
-## Infos about ESP32-C3 with direct connection to USB
+        if(imu.getStabilityClassifier() == 4)
+        {
+            calibStopped = true;
+            return;
+        }
+    } while (imu.getStabilityClassifier() != 1);
 
-The ESP32-C3 has two ways to connect the serial port. One is directly via the onboard USB CDC or via the onboard UART.
-When the chip is connected to the USB CDC, the serial port shows as `USB Serial Port` in Device Manager. The SlimeVR server will currently not connect to this port.
-If you want to set your WiFi credentials, you can use the PlatformIO serial console.
-There you have to enter the following: `SET WIFI "SSID" "PASSWORD"`
+    // Start calibration
+#if USE_6_AXIS
+    imu.calibrateGyro();
+#else
+    imu.calibrateAll();
+#endif
 
-## Uploading On Linux
+    // 保存前等待快速陀螺仪校准
+    ledManager.blink(10000);
 
-Follow the instructions in this link [PlatformIO](https://docs.platformio.org/en/latest//faq.html#platformio-udev-rules), this should solve any permission denied errors
+    saveCalibration();
 
+    lastCalib = millis();
+}
+```
 
-## Contributions
-Any contributions submitted for inclusion in this repository will be dual-licensed under
-either:
+### BNO080Sensor::saveCalibration()
 
-- MIT License ([LICENSE-MIT](/LICENSE-MIT))
-- Apache License, Version 2.0 ([LICENSE-APACHE](/LICENSE-APACHE))
+保存校准
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for
-inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual
-licensed as above, without any additional terms or conditions.
+```c++
+void BNO080Sensor::saveCalibration()
+{
+    do
+    {
+        ledManager.on();
+         delay(20);
+    } while (!imu.calibrationComplete());
+    imu.saveCalibration();
+}
+```
 
-You also certify that the code you have used is compatible with those licenses or is
-authored by you. If you're doing so on your work time, you certify that your employer is
-okay with this and that you are authorized to provide the above licenses.
+### src/sensors/bno080sensor.h
 
-For an explanation on how to contribute, see [`CONTRIBUTING.md`](CONTRIBUTING.md)
+声明这两个函数，和校准变量
+
+```c++
+src/sensors/bno080sensor.h
+class BNO080Sensor : public Sensor
+
+void startCalibration(int calibrationType) override final;
+    uint8_t getSensorState() override final;
+
+    void initCalibration();
+    void saveCalibration();
+
+	uint8_t lastCalib = 0;
+    bool calibStopped = false;
+
+private:
+    BNO080 imu{};
+
+```
+
+## 2.第二个自动校准版本
+
+逻辑：开机时检测085是否在桌面，确定在桌面后，校准陀螺仪，陀螺仪精度合格则自动保存（校准过程不到1秒，太仓促了）。
+
+## 3.第三个自动校准版本
+
+逻辑：开机2.5秒后，记录开机时陀螺仪、加速度计精度，开启自动校准。30秒后，当前精度比开机时精度高则保存。校准时间更长，可采集数据更多，理论上校准更可靠。
+
