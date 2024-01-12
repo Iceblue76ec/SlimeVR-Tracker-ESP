@@ -69,9 +69,9 @@ private:
 	// 关于BNO自动校准要用的参数
     bool calibStopped = false;
 	bool calibStarted = false;
-    bool calibAccelerometerStarted = false;
-
-    //bool savecalibGyro = false;
+	// 开机加速度计、陀螺仪精度
+	uint8_t bootAccelAccuracy = 0;
+	uint8_t bootGyroAccuracy = 0;
 };
 
 #endif

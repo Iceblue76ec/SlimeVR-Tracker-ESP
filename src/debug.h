@@ -29,11 +29,6 @@
 #define BNO_USE_ARVR_STABILIZATION true // Set to false to disable stabilization for BNO085+ IMUs
 #define BNO_USE_MAGNETOMETER_CORRECTION false // Set to true to enable magnetometer correction for BNO08x IMUs. Only works with USE_6_AXIS set to true.
 #define BNO_BOOT_AUTO_CALIBRATION true //BN0开机自校准开关
-#if BNO_BOOT_AUTO_CALIBRATION//开机自校准可选项
-	#define BNO_BOOT_AUTO_CALIBRATION_ACCEL false
-	#define BNO_BOOT_AUTO_CALIBRATION_Gyro true
-	#define BNO_BOOT_AUTO_CALIBRATION_Mag false
-#endif
 #define USE_6_AXIS true // uses 9 DoF (with mag) if false (only for ICM-20948 and BNO0xx currently)
 #define LOAD_BIAS true // Loads the bias values from NVS on start
 #define SAVE_BIAS true // Periodically saves bias calibration data to NVS
